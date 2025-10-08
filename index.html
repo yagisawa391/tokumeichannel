@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>匿名ちゃんねる掲示板</title>
+  <meta name="description" content="匿名で自由に語り合える匿名ちゃんねる掲示板。画像付き投稿もOK！">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta property="og:title" content="匿名ちゃんねる掲示板">
+  <meta property="og:description" content="匿名で誰でも語り合える掲示板。画像投稿・管理者削除対応！">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="匿名ちゃんねる掲示板">
+  <style>
+    :root {
+      --bg: linear-gradient(180deg, #fdfcfb 0%, #e2d1c3 100%);
+      --card-bg: #fffdf9;
+      --accent: #d97706;
+      --border: #ccc;
+    }
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: #222;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #fff7ed;
+      border-bottom: 2px solid var(--accent);
+      padding: 15px;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      color: var(--accent);
+    }
+    #adminPanel {
+      text-align: center;
+      margin-top: 10px;
+    }
+    #adminPanel button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      margin: 4px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    main {
+      max-width: 700px;
+      margin: 20px auto;
+      padding: 0 15px;
+    }
+    .post {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      position: relative;
+      transition: transform 0.1s ease;
+    }
+    .post:hover { transform: scale(1.01); }
+    .post-name {
+      font-weight: bold;
+      color: #444;
+      font-size: 1rem;
+    }
+    .post-text {
+      margin: 6px 0;
+      line-height: 1.5;
+    }
+    .post-contact {
+      font-size: 0.85rem;
+      color: #555;
+    }
+    .post-time {
+      font-size: 0.8rem;
+      color: #777;
+      margin-top: 4px;
+    }
+    .post img {
+      max-width: 100%;
+      border-radius: 8px;
+      margin-top: 6px;
+      border: 1px solid #ccc;
+    }
+    .delete-btn {
+      position: absolute; right: 8px; top: 8px;
+      font-size: 12px;
+      color: #c00;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    form {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    input[type="text"], textarea, input[type="file"] {
+      width: 100%;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      padding: 8px;
+      font-size: 1rem;
+      margin-bottom: 8px;
+    }
+    textarea { height: 80px; resize: vertical; }
+    button[type="submit"] {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+      padding: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>匿名ちゃんねる掲示板</h1>
+    <div id="adminPanel">
+      <button id="loginBtn">🔑 管理者ログイン</button>
+      <button id="logoutBtn" style="display:none;">🚪 ログアウト</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="posts"></div>
+
+    <form id="postForm">
+      <input type="text" id="name" placeholder="名前（任意）"><br>
+      <textarea id="comment" placeholder="本文を書いてください"></textarea><br>
+      <input type="text" id="contact" placeholder="連絡先（任意：メール・SNSなど）"><br>
+      <input type="file" id="imageInput" accept="image/*"><br>
+      <button type="submit">書き込む</button>
+    </form>
+  </main>
+
+  <footer>© 2025 匿名ちゃんねる掲示板</footer>
+
+  <script>
+    const ADMIN_PASS = "yourpassword"; // ←ここを自分のパスに変更！
+    let isAdmin = localStorage.getItem("bbs_admin") === "true";
+
+    const form = document.getElementById('postForm');
+    const postsDiv = document.getElementById('posts');
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const imageInput = document.getElementById('imageInput');
+
+    let posts = JSON.parse(localStorage.getItem('bbs_posts') || '[]');
+
+    const render = () => {
+      postsDiv.innerHTML = posts.map((p, i) => `
+        <div class="post">
+          <div class="post-name">${p.name || '匿名さん'}</div>
+          <div class="post-text">${p.text.replace(/\n/g, '<br>')}</div>
+          ${p.image ? `<img src="${p.image}" alt="投稿画像">` : ""}
+          ${p.contact ? `<div class="post-contact">📧 ${p.contact}</div>` : ""}
+          <div class="post-time">🕒 ${p.time}</div>
+          ${isAdmin ? `<button class="delete-btn" onclick="deletePost(${i})">削除</button>` : ""}
+        </div>
+      `).join('');
+    };
+
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const contact = document.getElementById('contact').value.trim();
+      const text = document.getElementById('comment').value.trim();
+      const file = imageInput.files[0];
+      if (!text && !file) return alert("本文か画像のどちらかを入力してください。");
+
+      const now = new Date();
+      const time = now.toLocaleString('ja-JP');
+
+      const savePost = (imageData) => {
+        posts.push({ name, contact, text, image: imageData, time });
+        localStorage.setItem('bbs_posts', JSON.stringify(posts));
+        document.getElementById('name').value = '';
+        document.getElementById('contact').value = '';
+        document.getElementById('comment').value = '';
+        imageInput.value = '';
+        render();
+      };
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = e => savePost(e.target.result);
+        reader.readAsDataURL(file);
+      } else {
+        savePost('');
+      }
+    });
+
+    function deletePost(index) {
+      if (confirm('本当に削除しますか？')) {
+        posts.splice(index, 1);
+        localStorage.setItem('bbs_posts', JSON.stringify(posts));
+        render();
+      }
+    }
+
+    // 管理者ログイン
+    loginBtn.addEventListener('click', () => {
+      const pass = prompt("管理者パスワードを入力してください：");
+      if (pass === ADMIN_PASS) {
+        isAdmin = true;
+        localStorage.setItem("bbs_admin", "true");
+        loginBtn.style.display = "none";
+        logoutBtn.style.display = "inline";
+        alert("管理者モードになりました。削除ボタンが表示されます。");
+        render();
+      } else {
+        alert("パスワードが違います。");
+      }
+    });
+
+    // ログアウト
+    logoutBtn.addEventListener('click', () => {
+      isAdmin = false;
+      localStorage.removeItem("bbs_admin");
+      loginBtn.style.display = "inline";
+      logoutBtn.style.display = "none";
+      render();
+    });
+
+    if (isAdmin) {
+      loginBtn.style.display = "none";
+      logoutBtn.style.display = "inline";
+    }
+
+    render();
+  </script>
+</body>
+</html>
